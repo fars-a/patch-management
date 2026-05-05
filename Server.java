@@ -22,6 +22,16 @@ class ClientHandler extends Thread{
                     String updatedVersion = successParts[2];
                     System.out.println(cname + " updated successfully to " + updatedVersion);
                     Server.writeLog("Update success: " + cname + " -> " + updatedVersion);
+
+                    if(Server.clientMap.containsKey(cname)){
+                        ClientInfo c = Server.clientMap.get(cname);
+                        c.version = updatedVersion;
+                        c.status = "UPDATED";
+                        c.socket = socket;
+                        c.output = output;
+                        displayClients();
+                    }
+
                     continue;
                 }
 
@@ -48,14 +58,20 @@ class ClientHandler extends Thread{
                 clientName = name;
                 if (Server.clientMap.containsKey(name)) {
                     System.out.println("Updating existing client: " + name);
-                } else {
+                        ClientInfo existing = Server.clientMap.get(name);
+                        existing.version = version;
+                        existing.socket = socket;
+                        existing.output = output;
+                        existing.status = "CONNECTED";
+                        existing.type = type;  
+                    } 
+                else{
                     System.out.println("[FIREWALL CHECK] ALLOWED → " + name + " (" + type + ")");
+                    Server.clientMap.put(name,
+                        new ClientInfo(name, type, version, socket, output, "CONNECTED"));
+
                 }
-                Server.clientMap.put(name,
-                        new ClientInfo(name, type, version, socket, output));
-
                 displayClients();
-
             }
         }
         catch(Exception e){
@@ -71,7 +87,7 @@ class ClientHandler extends Thread{
     public void displayClients() {
         System.out.println("\n--- Current Clients ---");
         for (ClientInfo c : Server.clientMap.values()) {
-            System.out.println(c.name + " | " + c.type + " | " + c.version);
+            System.out.println(c.name + " | " + c.type + " | " + c.version + " | " +c.status);
         }
         System.out.println("------------------------\n");
     }
@@ -80,22 +96,25 @@ class ClientInfo {
     String name;
     String type;
     String version;
+    String status;
     Socket socket;
     DataOutputStream output;
 
-    public ClientInfo(String name, String type, String version, Socket socket, DataOutputStream output) {
+    public ClientInfo(String name, String type, String version, Socket socket, DataOutputStream output, String status) {
         this.name = name;
         this.type = type;
         this.version = version;
+        this.status = status;
         this.socket = socket;
         this.output = output;
     }
 }
 
 public class Server{
-    static Map<String, ClientInfo> clientMap = new HashMap<>();
+    static Map<String, ClientInfo> clientMap = Collections.synchronizedMap(new HashMap<>());
     public static void sendPatchByType(String targetType,String newVersion){
-        for(ClientInfo client : clientMap.values()){
+        synchronized(Server.clientMap){
+            for(ClientInfo client : clientMap.values()){
             try{
                 if(targetType.equalsIgnoreCase("ALL") || client.type.equalsIgnoreCase(targetType)){
 
@@ -104,28 +123,31 @@ public class Server{
 
                     if(!file.exists()){
                         System.out.println("Patch file not found: " +filePath);
-                        return;
+                        continue;
                     }
-
+                    client.status = "UPDATING";
                     client.output.writeUTF("SEND_FILE");
-                    sendFile(client.socket, filePath);
+                    sendFile(client.output, filePath);
 
-                    client.output.writeUTF("UPDATE: "+newVersion);
+                    Thread.sleep(100);
+
+                    client.output.writeUTF("UPDATE:"+ newVersion);
                     System.out.println("[ROUTING] Patch routed to: " + client.name + " (" + client.type + ")");
-                    writeLog("Patch sent to " + client.name + " |New version: " + newVersion);
+                    writeLog("Patch sent to " + client.name + " |New version: " + newVersion + " | " + client.status);
                 }
             }
             catch(Exception e){
+                client.status = "FAILED";
                 System.out.println("Failed to send patch to: " + client.name);
+            }
             }
         }
     }
 
-    public static void sendFile(Socket socket, String filePath){
+    public static void sendFile(DataOutputStream dos, String filePath){
         try{
             File file = new File(filePath);
-            FileInputStream fis = new FielInputStream(file);
-            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+            FileInputStream fis = new FileInputStream(file);
 
             dos.writeUTF(file.getName());
             dos.writeLong(file.length());

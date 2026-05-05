@@ -3,6 +3,30 @@ import java.net.*;
 import java.util.*;
 class Client{
     
+    public static void receiveFile(DataInputStream input){
+        try{
+            DataInputStream dis = input;
+            String fileName = dis.readUTF();
+            long fileSize = dis.readLong();
+            File dir = new File("client_updates");
+            if(!dir.exists())
+                dir.mkdir();
+            FileOutputStream fos = new FileOutputStream("client_updates/" + fileName);
+            byte[] buffer = new byte[4096];
+            int bytes;
+            long remaining = fileSize;
+            while((bytes = dis.read(buffer, 0, (int)Math.min(buffer.length, remaining))) > 0){
+                fos.write(buffer, 0, bytes);
+                remaining -= bytes;
+            }
+            fos.close();
+            System.out.println("[FILE] Received: " + fileName);
+        }
+        catch(Exception e){
+            System.out.println("File receive failed!");
+        }
+    }
+
     public static void main(String args[]){
         try{
             Socket socket = new Socket("localhost",1234);
@@ -21,9 +45,9 @@ class Client{
             while(true){
                 String serverMessage = input.readUTF();
 
-                if(serverMessage.equals("SEND_FILE"){
-                    recieveFile(socket);
-                })
+                if(serverMessage.equals("SEND_FILE")){
+                    receiveFile(input);
+                }
 
                 else if(serverMessage.startsWith("UPDATE:")){
                     String newVersion = serverMessage.split(":")[1].trim();

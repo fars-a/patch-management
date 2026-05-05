@@ -2,3 +2,6 @@ Client connected: Socket[addr=/127.0.0.1,port=50293,localport=1234]
 Update success: PC1 -> v2
 Client connected: Socket[addr=/127.0.0.1,port=64842,localport=1234]
 Update success: PCq -> v2
+Client connected: Socket[addr=/127.0.0.1,port=58590,localport=1234]
+Patch sent to PC1 |New version: v2 | UPDATING
+Update success: PC1 -> v2
