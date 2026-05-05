@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 class Client{
+    
     public static void main(String args[]){
         try{
             Socket socket = new Socket("localhost",1234);
@@ -19,7 +20,12 @@ class Client{
             output.writeUTF(data);
             while(true){
                 String serverMessage = input.readUTF();
-                if(serverMessage.startsWith("UPDATE:")){
+
+                if(serverMessage.equals("SEND_FILE"){
+                    recieveFile(socket);
+                })
+
+                else if(serverMessage.startsWith("UPDATE:")){
                     String newVersion = serverMessage.split(":")[1].trim();
 
                     System.out.println("\nPatch recieved");

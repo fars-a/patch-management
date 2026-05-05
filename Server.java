@@ -97,14 +97,22 @@ public class Server{
     public static void sendPatchByType(String targetType,String newVersion){
         for(ClientInfo client : clientMap.values()){
             try{
-                if(targetType.equalsIgnoreCase("ALL")){
+                if(targetType.equalsIgnoreCase("ALL") || client.type.equalsIgnoreCase(targetType)){
+
+                    String filePath = "patch_files/patch_" + newVersion + ".txt";
+                    File file = new File(filePath);
+
+                    if(!file.exists()){
+                        System.out.println("Patch file not found: " +filePath);
+                        return;
+                    }
+
+                    client.output.writeUTF("SEND_FILE");
+                    sendFile(client.socket, filePath);
+
                     client.output.writeUTF("UPDATE: "+newVersion);
                     System.out.println("[ROUTING] Patch routed to: " + client.name + " (" + client.type + ")");
                     writeLog("Patch sent to " + client.name + " |New version: " + newVersion);
-                }
-                else if(client.type.equalsIgnoreCase(targetType)){
-                    client.output.writeUTF("UPDATE: "+newVersion);
-                    System.out.println("Patch sent to "+ client.name);
                 }
             }
             catch(Exception e){
@@ -112,6 +120,33 @@ public class Server{
             }
         }
     }
+
+    public static void sendFile(Socket socket, String filePath){
+        try{
+            File file = new File(filePath);
+            FileInputStream fis = new FielInputStream(file);
+            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+
+            dos.writeUTF(file.getName());
+            dos.writeLong(file.length());
+
+            byte[] buffer = new byte[4096];
+            int bytes;
+
+            while((bytes = fis.read(buffer)) != -1 ){
+                dos.write(buffer, 0, bytes);
+            }
+            dos.flush();
+            fis.close();
+
+            System.out.println("[FILE] Sent: " + file.getName());
+        }
+        catch(Exception e){
+            System.out.println("File send failed!");
+        }
+    }
+
+
     public static void writeLog(String message){
         try{
             FileWriter fw = new FileWriter("log.txt", true);
